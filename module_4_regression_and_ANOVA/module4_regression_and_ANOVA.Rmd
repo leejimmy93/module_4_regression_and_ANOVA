@@ -1,0 +1,15 @@
+---
+title: "module4_regression_and_ANOVA"
+author: "Ruijuan Li"
+date: "July 12, 2016"
+output: html_document
+---
+
+# install all the required packages 
+```{r}
+# install.packages("gee")
+# install.packages("multcomp")
+library(gee)
+library(multcomp)
+```
+
