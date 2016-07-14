@@ -13,3 +13,56 @@ library(gee)
 library(multcomp)
 ```
 
+# lab1, association between triglycerides & BMI??? 
+```{r}
+cholesterol = read.table("http://faculty.washington.edu/rhubb/sisg/SISG-Data-cholesterol.txt", header=T)
+attach(cholesterol) # make variables global available in R studio 
+# compute univariate summary statistics for triglycerides
+dim(cholesterol)
+
+# take a look at the data 
+mean(TG)
+median(TG)
+sd(TG)
+summary(TG)
+# graphical displays for triglycerides
+boxplot(TG)
+stem(TG) # ??? similar to histogram, but in a numeric pattern 
+?stem
+hist(TG)
+
+# creat a binary indicator for BMI > 25 
+ibmi <- ifelse(BMI > 25, 1, 0)  # arbitrarily devide BMI into 2 groups 
+ibmi
+
+# compute univariate summary statistics for triglycerides for BMI > 25 and BMI <= 25
+tapply(TG,ibmi,mean)
+tapply(TG,ibmi,median)
+tapply(TG,ibmi,sd)
+# tapply(vector, index, function)
+
+# plot boxplots for triglycerides separately by BMI > 25 and BMI <= 25
+boxplot(TG ~ ibmi) # summary boxplot for the 2 groups with different BMI 
+t.test(TG ~ ibmi) # doing t-test to see whether there is association 
+
+# instead of t-test, using continous predictor and outcome values to test for association 
+# scatterplot of triglycerides vs BMI
+plot(BMI, TG)
+# fit linear regression models for the association between triglycerdies and BMI
+fit1 = lm(TG ~ BMI)
+?glm # more generlized, can use glm for lm 
+summary(fit1)
+confint(fit1) # confidence interval 
+fit1$coefficients
+
+# compute the predicted value and its 95% confidence interval for the mean value of TG at BMI=23 as well
+# as for a new individual w/ BMI=23. 
+predict(fit1, newdata = data.frame(BMI = 23), interval = "confidence") # predicted value and its 95% confidence interval for the mean value of TG at BMI=23
+predict(fit1, newdata = data.frame(BMI = 23), interval = "prediction") # predicted value and its 95% confidence interval for a new individual w/ BMI=23
+
+# How do these two intervals differ and why?
+# the predicted value for these two are the same but the intervals for predicted value for new individuals are much bigger, because it includes the random variability around the mean. 
+```
+
+
+
