@@ -64,5 +64,60 @@ predict(fit1, newdata = data.frame(BMI = 23), interval = "prediction") # predict
 # the predicted value for these two are the same but the intervals for predicted value for new individuals are much bigger, because it includes the random variability around the mean. 
 ```
 
+# Regresson Lab 2 
+```{r}
+# identify outliers in scatterplot of triglycerides vs BMI
+# Construct a scatterplot of triglycerides versus BMI. Are there any points that you suspect might
+# have a large influence on the regression estimates? looking for outline (large residual compared to other observations, far from the general linear trend) or influential points (removing that observation change the regression line)? 
+plot(BMI, TG)
+bmi37 = which(BMI<=37) 
+?which  
+
+# excluding subjects with BMI > 37
+fit2 = lm(TG[bmi37] ~ BMI[bmi37])
+summary(fit2)
+fit2$coefficients
+
+# analyze residuals from the regression analysis of triglycerides and BMI
+plot(fit2$fitted, fit2$residuals) > abline(0,0) # abline(0, 0) slope of 0 and intercept of 0 as ref line, seems like there is equal variance assumption 
+qqnorm(fit2$residuals)
+qqline(fit2$residuals) # seems there is normality assumption 
+
+
+# fit a linear regression model with robust standard error 
+fit.gee = gee(TG ~ BMI, id = seq(1,length(TG))) # id create vector from 1 to the max number of observations, The length of id should be the same as the number of observations.  
+summary(fit.gee) 
+# calculate p-values for robust regression
+z <- abs(fit.gee$coef/sqrt(diag(fit.gee$robust))) 
+2*(1-pnorm(z)) # so robust se calculate the right p-value? 
+
+# fit a regression model for log transformed triglycerides and BMI
+fit.log = lm(log(TG) ~ BMI)
+summary(fit.log)
+
+# analyze residuals from the regression analysis of log transformed triglycerides and BMI
+par(mfrow = c(1,2))
+plot(fit.log$fitted, fit.log$residuals) > abline(0,0)
+qqnorm(fit.log$residuals)
+qqline(fit.log$residuals)
+
+# binary variable indicating presence of APOE4
+APOE4 = ifelse(apoE %in% c(3,5,6), 1, 0) 
+# scatterplot with subjects stratified by APOE4
+par(mfrow = c(1,1))
+plot(BMI[APOE4 == 0], TG[APOE4 == 0], pch = 19, xlab = "BMI", ylab = "triglycerides") # only plot APOE4==0 observations 
+points(BMI[APOE4 == 1], TG[APOE4 == 1], pch = 1)  # pch=1 open circles 
+# multiple linear regression of triglycerides on BMI, APOE4, and interaction
+fit3 = lm(TG ~ BMI + APOE4 + BMI*APOE4) 
+fit3.1 <- lm(TG ~ BMI + APOE4 + BMI:APOE4) 
+summary(fit3.1)
+summary(fit3) 
+```
+
+
+
+
+
+
 
 
