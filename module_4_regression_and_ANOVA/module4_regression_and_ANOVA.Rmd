@@ -114,7 +114,152 @@ summary(fit3.1)
 summary(fit3) 
 ```
 
+# ANOVA Lab 1
+```{r}
+# The goal of this lab is to answer the following scientific questions using the cholesterol dataset:
+# • Is rs4775401 associated with cholesterol levels?
+# • Is APOE associated with cholesterol levels?
 
+library(multcomp)
+library(gee)
+
+## read data set ----------------------------------------------------------------
+cholesterol = read.table("http://faculty.washington.edu/rhubb/sisg/SISG-Data-cholesterol.txt", header=T)
+attach(cholesterol)
+## Exploratory data analysis ----------------------------------------------------
+## graphical display: boxplot
+par(mfrow = c(1,2))
+boxplot(chol ~ as.factor(rs4775401))
+boxplot(chol ~ as.factor(APOE))
+levels(as.factor(APOE))
+## alternative graphical display: graph of means 
+par(mfrow = c(2,1))
+plot.design(chol ~ as.factor(rs4775401)) # compare grand mean VS mean of each subgroup 
+plot.design(chol ~ as.factor(APOE))
+
+tapply(chol, as.factor(rs4775401), mean)
+tapply(chol, as.factor(rs4775401), sd)
+tapply(chol, as.factor(APOE), mean)
+tapply(chol, as.factor(APOE), sd)
+# tapply(vector, index, function) 
+
+## Inferential data analysis ----------------------------------------------------
+fit1 = lm(chol ~ as.factor(rs4775401)) 
+summary(fit1)
+anova(fit1)
+
+fit2 <- lm(chol ~ as.factor(APOE)) 
+summary(fit2) # from here we only know whether one group is different from the ref group   
+anova(fit2) 
+
+## all pairwise comparisons with different methods for adjustment 
+M2 = contrMat(table(APOE), type="Tukey") # make pairwise comparison table
+M2 
+fit3 = lm(chol ~ -1 + as.factor(APOE)) # 
+mc2 = glht(fit3, linfct =M2)
+summary(mc2, test=adjusted("none")) # from here we know each pairwise comparison significance 
+
+summary(mc2, test=adjusted("bonferroni"))
+summary(mc2, test=adjusted("holm"))
+summary(mc2, test=adjusted("hochberg"))
+summary(mc2, test=adjusted("hommel"))
+summary(mc2, test=adjusted("BH"))
+summary(mc2, test=adjusted("BY"))
+summary(mc2, test=adjusted("fdr"))
+
+
+## One-way (not assuming equal variances)
+oneway.test(chol ~ as.factor(rs4775401)) # ANOVA assumes equal variance, but one-way ANOVA not is not assuming equal variance????  
+?lm
+?oneway.test
+oneway.test(chol ~ as.factor(APOE))
+## Using robust standard errors
+summary(gee(chol ~ as.factor(rs4775401), id=seq(1,length(chol)))) # if "robust z" value is less than 2, non significant, otherwise significant
+summary(gee(chol ~ as.factor(APOE), id=seq(1,length(chol))))
+
+## non-parametric ANOVA, non normal distribution 
+kruskal.test(chol ~ as.factor(rs4775401)) # no significant difference in distributions grouped by SNP
+kruskal.test(chol ~ as.factor(APOE)) # significant difference in distribution grouped by APOE 
+```
+
+# ANOVA lab 2 
+```{r}
+# The goal of this lab is to answer the following scientific questions using the cholesterol dataset.
+# • Are rs174548 and APOE associated with cholesterol levels?
+# • Does the effect of APOE on cholesterol levels depend on rs174548?
+## Two-way ANOVA ------------------------------------------------------------ > 
+## exploratory data analysis
+table(rs174548, APOE)
+?table  
+tapply(chol, list(as.factor(rs174548), as.factor(APOE)), mean)
+tapply(chol, list(as.factor(rs174548), as.factor(APOE)), sd)
+par(mfrow=c(1,1)) 
+plot.design(chol ~ as.factor(rs174548) + as.factor(APOE)) 
+## model with interaction
+fit1 = lm(chol ~ as.factor(rs174548)*as.factor(APOE))  
+summary(fit1)
+## model without interaction
+fit2 = lm(chol ~ as.factor(rs174548) + as.factor(APOE)) 
+summary(fit2)
+## compare models with and without interaction 
+anova(fit2,fit1) 
+fit3 <- lm(chol ~ as.factor(rs174548))
+anova(fit2, fit3)
+fit4 <- lm(chol ~ as.factor(APOE))
+anova(fit4, fit2) 
+?lm
+```
+
+# ANOVA Lab 3
+```{r}
+# The goal of this lab is to answer the following scientific questions using the cholesterol dataset.
+# • Controlling for age, is APOE associated with cholesterol levels?
+# • Does age modify the association between APOE and cholesterol levels?
+by(cbind(chol,age), APOE, cor, method="pearson") # correlation between age & chol, with APOE as indices, using "pearson" as the method 
+chol
+age
+length(chol)
+length(age)
+?by
+
+by(cbind(chol,age), APOE, cor, method="spearman") # doing correlation but using spearman method 
+plot(age, chol, xlab = "AGE (yrs)", ylab = "CHOLESTEROL (mg/dl)", type = "n") # type="n" means just creat the area for the plot 
+for (i in 1:6){
+  lines(lowess(age[APOE==i], chol[APOE==i]), col=i)
+  points(age[APOE==i], chol[APOE==i], col=i, pch=16)      
+}
+legend(min(age), max(chol), legend=paste("APOE", seq(1,6)), col=seq(1,6), pch=16, lty=1)
+
+## ANCOVA Model with an interaction
+fit1 = lm(chol ~ as.factor(APOE) * age) # mixed categorical & continuous --> Analysis of covariance  
+summary(fit1) 
+
+## ANCOVA Model without an interaction
+fit2 = lm(chol ~ as.factor(APOE) + age) 
+summary(fit2)
+anova(fit1, fit2)
+
+## ONE-WAY ANOVA model
+fit3 <- lm(chol~ as.factor(APOE))
+summary(fit3)
+anova(fit3, fit2)
+## mean cholesterol for different genotypes
+predict(fit3, new=data.frame(APOE=1))
+predict(fit3, new=data.frame(APOE=2))
+predict(fit3, new=data.frame(APOE=3))
+predict(fit3, new=data.frame(APOE=4))
+predict(fit3, new=data.frame(APOE=5))
+predict(fit3, new=data.frame(APOE=6))
+## mean cholesterol for different genotypes adjusted by age
+predict(fit2, new=data.frame(age=mean(age),APOE=1))
+predict(fit2, new=data.frame(age=mean(age),APOE=2))
+predict(fit2, new=data.frame(age=mean(age),APOE=3))
+predict(fit2, new=data.frame(age=mean(age),APOE=4))
+predict(fit2, new=data.frame(age=mean(age),APOE=5))
+predict(fit2, new=data.frame(age=mean(age),APOE=6))
+
+
+```
 
 
 
