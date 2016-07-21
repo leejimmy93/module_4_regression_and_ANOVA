@@ -197,6 +197,105 @@ lmrec <- lm(sbp ~ recessive, data = bpdata)
 summary(lmrec)
 ```
 
+# session 3
+```{r}
+setwd("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Data_Files/")
+
+## A few R commands for summary statistics for phenotype ##
+##  count number of individuals in the study
+FAM<-read.table(file="Transferrin.fam",sep=" ", header=FALSE,na="NA")
+head(FAM)
+dim(FAM)
+
+## Map Information on number of SNPS count number of genotyped SNPs
+map<-read.table(file="Transferrin.bim",sep="\t", header=FALSE,na="NA") # SNP data 
+head(map) 
+dim(map)
+
+## Obtain some basic Info on transferrin phenotype  
+TPHENO<-read.table(file="Tr.pheno", header=FALSE)
+
+head(TPHENO) 
+dim(TPHENO)
+
+# Give names to PHENO variables  
+
+names(TPHENO)=c("FAMID", "ID", "Transferrin")
+head(TPHENO)
+
+###Summary information and histrogram of transferrin pheno
+
+summary(TPHENO$Transferrin)
+table(is.na(TPHENO$Transferrin))
+
+hist(TPHENO$Transferrin, xlab="Transferrin",main="Histogram of Transferrin")
+
+## GET INFO on height phenotype  (standardized and adjusted for relevant covariates)
+ 
+HPHENO = read.table(file="Ht.pheno.txt", header=FALSE)
+
+head(HPHENO)
+dim(HPHENO)
+
+names(HPHENO)=c("FAMID", "ID", "Height")
+head(HPHENO)
+
+###Summary information and histrogram of height
+summary(HPHENO$Height)
+table(is.na(HPHENO$Height))
+
+hist(HPHENO$Height, xlab="Height",main="Histogram of Height")
+
+##### After you run the PLINK association analysis, use the commands below #######
+
+# If the R package GWASTools has not yet been installed on your computer, install the R package using the commands below 
+
+# source("http://bioconductor.org/biocLite.R")
+# biocLite("GWASTools")
+
+### Load the GWASTools package to your R session so that we can use the plotting functions for this package ###
+
+library(GWASTools)
+
+### Read in the Association Results from PLINK for Height
+
+Height.Assoc=read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/plink-1.07-mac-intel/GWAS_H_add.qassoc",header=TRUE)	
+
+head(Height.Assoc)
+
+#### Obtain a Manhattan plot using GWAS tools ####
+
+manhattanPlot(p=Height.Assoc$P,chromosome=Height.Assoc$CHR, main="Association Results for Height")
+
+### can create a Manhattan plot for just the autosomes ###
+
+AHeight.Assoc=subset(Height.Assoc,CHR<=22)
+
+manhattanPlot(p=AHeight.Assoc$P,chromosome=AHeight.Assoc$CHR, main="Association Results for Autosomes for Height")
+
+#### Obtain a Q-Q plot using GWAS tools ####
+
+qqPlot(pval=Height.Assoc$P)
+
+### Can also us the qqman package to obtain a manhattan plot ###
+
+# install.packages("qqman")
+library("qqman")
+vignette("qqman")
+
+manhattan(Height.Assoc)
+qq(Height.Assoc$P)
+
+### IDENTIFY TOP 10 SNPS  for Height  ###
+head(Height.Assoc)
+dim(Height.Assoc)		## number of SNPS analyzed
+
+TOP <- Height.Assoc[order(Height.Assoc$P),] 
+head(TOP,10)
+
+### Similarly obtain plots and top SNPs for Transferrin ### 
+```
+
 
 
 
