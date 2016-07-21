@@ -1,0 +1,12 @@
+---
+title: "module10_GWAS"
+author: "Ruijuan Li"
+date: "July 20, 2016"
+output: html_document
+---
+
+# 1) session 1 
+```{r}
+
+```
+

@@ -258,7 +258,6 @@ predict(fit2, new=data.frame(age=mean(age),APOE=4))
 predict(fit2, new=data.frame(age=mean(age),APOE=5))
 predict(fit2, new=data.frame(age=mean(age),APOE=6))
 
-
 ```
 
 

@@ -1,0 +1,205 @@
+---
+title: "module10_GWAS"
+author: "Ruijuan Li"
+date: "July 20, 2016"
+output: html_document
+---
+
+# 1) session 1 
+```{r}
+setwd("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/")
+LHON=read.table("http://faculty.washington.edu/tathornt/sisg/LHON.txt",header=TRUE)
+### View the first few lines of the LHON data
+
+head(LHON)
+
+### For computers using Rstudio, could also use the View command #
+
+#View(LHON)
+
+
+### Take a closer look at the types of variables in the LHON data frame
+
+str(LHON)
+
+# Question 2: Perform logistic regression.  Obtain odds ratios and confidence intervals
+
+# Create a 0 and 1 phenotype variable indicating Case/Control Status to perform a logistic regression analysis
+
+
+LHON$newpheno=with(LHON,ifelse(PHENO=="CASE",1,0))
+
+
+## What would be the reference genotype for a logistic regression analysis?  The first factor will be the reference genotype.
+
+levels(LHON$GENO)
+
+# Perform a logistic regression analysis
+
+model1=glm(newpheno~GENO,family=binomial(link="logit"),data=LHON)
+?glm
+
+# View the summary results of the logistic regression model, including parameter estimates and standard errors  
+
+summary(model1)
+
+#  Obtain odds ratio and a 95% confidence interval for CT the reference genotype CC  ## 
+
+
+# summary(model1)
+#
+#Call:
+#glm(formula = newpheno ~ GENO, family = binomial(link = "logit"),data = LHON)
+#
+#Deviance Residuals: 
+#    Min       1Q   Median       3Q      Max  
+#-0.9695  -0.8701  -0.8701   1.5197   2.1093  
+#
+#Coefficients:
+#            Estimate Std. Error z value Pr(>|z|)  
+#(Intercept)  -0.5108     0.5164  -0.989   0.3226  
+#GENOCT       -1.5994     0.6378  -2.508   0.0122 *
+#GENOTT       -0.2654     0.5349  -0.496   0.6197  
+#---
+#Signif. codes:  0 ???***??? 0.001 ???**??? 0.01 ???*??? 0.05 ???.??? 0.1 ??? ??? 1 
+#
+#(Dispersion parameter for binomial family taken to be 1)
+#
+#    Null deviance: 383.49  on 327  degrees of freedom
+#Residual deviance: 368.48  on 325  degrees of freedom
+#AIC: 374.48
+#
+#Number of Fisher Scoring iterations: 4
+
+
+## WHAT is the odds ratio for the CT genotype?
+
+exp(-1.5994)
+
+# Obtain a confidence interval for the  odss ratio parameter for the CT genotype
+
+myse=1.96*(.6378)
+
+CI=c(-1.5994-myse,-1.5994+myse)
+
+exp(CI)
+
+# Similarly can obtain a confidence interval for the odds ratio for the TT genotype
+
+exp(-.2654)
+
+myse=1.96*(.5349)
+
+CI=c(-.2654-myse,-.2654+myse)
+exp(CI)
+
+
+
+
+## Question 3: Redo the association analysis but use TT as the reference genotype  ##
+
+# Hint: Use the relevel function to create a new genotype vector with reference genotype TT
+
+LHON$NEWGENO=with(LHON,relevel(GENO, ref = "TT"))
+
+
+levels(LHON$NEWGENO)
+
+### Perform logistic regression using 
+model2=glm(newpheno~NEWGENO,family=binomial(link="logit"),data=LHON)
+summary(model2) # odd ratio depends on your reference. 
+
+
+exp(-1.3340 )
+
+myse=1.96*(.3995)
+
+CI=c(-1.3340-myse,-1.3340+myse)
+exp(CI)
+
+
+#  could also do the following to get 95% confidence interval of parameters from your model
+
+MYCI=confint.default(model2)
+exp(MYCI)
+
+
+### Why are the odds ratios different for CT now?  Explain? 
+# 1) because you chang ref from CC to TT, odds ratio depends on reference. 
+### Plot the data for a better understanding
+
+plot(factor(PHENO)~factor(GENO), data=LHON)
+# by looking at the plot, you can find that there is fewer data in CC, sample size 
+# is small, which can introduce higher errors. 
+
+#How about an additive logistic regression model?  
+
+LHON$genoadd <- with(LHON, 0 + 1*(GENO=="CT") + 2*(GENO=="TT"))
+ 
+model3 <- glm(newpheno~genoadd,family=binomial(link="logit"),data=LHON)
+summary(model3) 
+
+
+```
+
+# session 2  
+```{r}
+# session 2 commands
+
+bpdata=read.csv("http://faculty.washington.edu/tathornt/sisg/bpdata.csv",header=TRUE)
+
+# Question 1: linear regression different models
+
+#additive model, only the number of alleles matters 
+head(bpdata)
+bpdata$n.minor <- (bpdata$snp3=="TC") + (bpdata$snp3=="CT")+ 2*(bpdata$snp3=="TT")
+# true as 1 and false as 0 in R 
+lm1 = lm(sbp~n.minor, data=bpdata)
+
+# obtain a confidence interval for the linear regression paramaters
+confint.default(lm1)
+summary(lm1)
+
+#dominant effect of T
+bpdata$domvar <- (bpdata$snp3=="TC") | (bpdata$snp3=="TT") # one copy of T allele has 
+# same effect of 2 T alleles. 
+
+with(bpdata, table(domvar, snp3)) # table function in R 
+
+lm2 <- lm(sbp~domvar, data=bpdata) 
+confint.default(lm2)
+summary(lm2)
+
+#Do linear regression analysis assuming a recessive model and assuming a two-degree of freedom model (genotypic model)
+
+# Question 2: Plots
+plot(sbp~jitter(n.minor), data=bpdata,col="darkgreen")
+abline(lm1, col="red", lwd=2)
+
+boxplot(sbp~n.minor,data=bpdata, col=c("purple","red","darkblue"))
+abline(lm1, lwd=2)
+
+## question 3 ##
+
+lm1adj = lm(sbp~n.minor+sex+bmi, data=bpdata) # by including sex, increase the precision of linear regression, get better estimate 
+#Get confidence intervals and summary data #
+
+## question 4##
+## Perform a linear regression for additive model using all SNPs
+
+# 2 degree of freedom model 
+lm3 <- lm(sbp ~ snp3, data = bpdata) # sample size and standard error problem... 
+summary(lm3)
+
+# ressesive model 
+bpdata$recessive <- (bpdata$snp3=="TT")
+lmrec <- lm(sbp ~ recessive, data = bpdata)
+summary(lmrec)
+```
+
+
+
+
+
+
+
