@@ -296,6 +296,193 @@ head(TOP,10)
 ### Similarly obtain plots and top SNPs for Transferrin ### 
 ```
 
+# session 4 
+```{r}
+### R Scripts : Reading data into R and getting rid of missing phenotypes
+
+snps = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/plink-1.07-mac-intel/TFsnps.raw", header = T) 
+phenotypes = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Data_Files/Tr.pheno", header = F)
+
+missing.phenotypes = which(is.na(phenotypes[,3]))
+Z = as.matrix(snps[-missing.phenotypes,7:30])
+y = as.vector(phenotypes[-missing.phenotypes,3])
+
+
+##################################################################################################################
+##################################################################################################################
+
+
+### R Scripts: find out home much missing data we have in the SNPs, and then omit the samples with missing SNPs
+
+sum(is.na(Z)) ## this gives us the number of SNPs that are missing
+
+w.missing = which(apply(is.na(Z),1,sum) > 0) ## This figures out which subjects have ANY missing values
+
+Z = Z[-w.missing,]  ## now we get rid of the subjects with any missing SNPs
+y = y[-w.missing]   ## BE CAREFUL: because we are over-writing the variable, don't run this line more than once by accident.
+
+sum(is.na(Z))
+sum(is.na(y)) ## Now we see that there is no missingness in either the Z or the y.
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: minP tests
+
+
+pvals = rep(NA, ncol(Z))
+for (j in 1:ncol(Z)) {
+  pvals[j] = summary(lm(y~Z[,j]))$coef[2,4]  ### this gets the p-value for the association between the j-th snp and y
+}
+
+
+min.pvalue = min(pvals) ## This actually runs the previous function
+
+min.pvalue  ## This is the unadjusted minimum p-value
+
+bonf.pvalue = min(min.pvalue*ncol(Z), 1) ## this is the bonferroni adjusted minimum p-value
+
+### since unadjusted is way too liberal and bonferroni can be way to conservative, let's try getting some sense
+### of the "effective number of tests".  We'll try the PCA approach, though many others are possible
+
+getEffectiveSampSize.PCA = function(Z, proportionVariability = 0.99) {
+## this function will estimate the number of PCs necessary to explain a certain proportion of the variability
+## Z is the matrix of genotypes and proportionVariability is the proportion of variability we want to explain.
+
+  pca = prcomp(Z) ### Does principal component analysis
+  evs = pca$sdev**2/sum(pca$sdev**2) ## represents the proportion of variability that is explained by each component
+  return(min(which(cumsum(evs)>= proportionVariability)))
+}
+
+eff90pct = getEffectiveSampSize.PCA(Z, 0.90)
+eff95pct = getEffectiveSampSize.PCA(Z, 0.95)
+eff99pct = getEffectiveSampSize.PCA(Z, 0.99)
+eff99.9pct = getEffectiveSampSize.PCA(Z, 0.999)
+
+p90pct = min(eff90pct*min.pvalue, 1)
+p95pct = min(eff95pct*min.pvalue, 1)
+p99pct = min(eff99pct*min.pvalue, 1)
+p99.9pct = min(eff99.9pct*min.pvalue, 1)
+
+cbind(c(p90pct, p95pct,p99pct, p99.9pct), c(90,95,99,99.9))
+
+### Note that there is tremendous heterogeneity in the p-values.  Although they are all significant, it's not clear which is the best.
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: averaging/collapsing tests
+
+### let's first collapse the SNPs into a simple average or sum of the variants within the region
+
+C = apply(Z, 1, sum) ## This sums each row of Z
+hist(C)
+
+summary(lm(y~C))  ## This gives us the association between the averaged/summed SNP value and the outcome y
+
+### Now let's take the top principal component
+
+pca = prcomp(Z)       ### find eigen decomposition
+pc1 = Z%*%pca$rot[,1] ### computes the top principal component
+
+summary(lm(y~pc1)) ## Gives us the association
+
+
+##################################################################################################################
+##################################################################################################################
+###---***---***---###---***---***---###---***---***---###---***---***---###---***---***---###---***---***---###
+###---***---***---###---***---***---###---***---***---###---***---***---###---***---***---###---***---***---###
+##################################################################################################################
+##################################################################################################################
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: Now let's repeat everything with just some random segment of the genome
+
+snps = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/plink-1.07-mac-intel/randomSegment.raw", header = T) 
+phenotypes = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Data_Files/Tr.pheno", header = F)
+
+missing.phenotypes = which(is.na(phenotypes[,3]))
+Z = as.matrix(snps[-missing.phenotypes,7:247])
+y = as.vector(phenotypes[-missing.phenotypes,3])
+
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: find out home much missing data we have in the SNPs, and then omit the samples with missing SNPs
+
+sum(is.na(Z)) ## this gives us the number of SNPs that are missing
+
+w.missing = which(apply(is.na(Z),1,sum) > 0) ## This figures out which subjects have ANY missing values
+
+Z = Z[-w.missing,]  ## now we get rid of the subjects with any missing SNPs
+y = y[-w.missing]   ## BE CAREFUL: because we are over-writing the variable, don't run this line more than once by accident.
+
+sum(is.na(Z))
+sum(is.na(y)) ## Now we see that there is no missingness in either the Z or the y.
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: minP tests
+
+
+pvals = rep(NA, ncol(Z))
+for (j in 1:ncol(Z)) {
+  pvals[j] = summary(lm(y~Z[,j]))$coef[2,4]  ### this gets the p-value for the association between the j-th snp and y
+}
+
+
+min.pvalue = min(pvals) ## This actually runs the previous function
+
+min.pvalue  ## This is the unadjusted minimum p-value
+
+bonf.pvalue = min(min.pvalue*ncol(Z), 1) ## this is the bonferroni adjusted minimum p-value
+
+### since unadjusted is way too liberal and bonferroni can be way to conservative, let's try getting some sense
+### of the "effective number of tests".  We'll try the PCA approach, though many others are possible
+
+getEffectiveSampSize.PCA = function(Z, proportionVariability = 0.99) {
+## this function will estimate the number of PCs necessary to explain a certain proportion of the variability
+## Z is the matrix of genotypes and proportionVariability is the proportion of variability we want to explain.
+
+  pca = prcomp(Z) ### Does principal component analysis
+  evs = pca$sdev**2/sum(pca$sdev**2) ## represents the proportion of variability that is explained by each component
+  return(min(which(cumsum(evs)>= proportionVariability)))
+}
+
+eff90pct = getEffectiveSampSize.PCA(Z, 0.90)
+eff95pct = getEffectiveSampSize.PCA(Z, 0.95)
+eff99pct = getEffectiveSampSize.PCA(Z, 0.99)
+eff99.9pct = getEffectiveSampSize.PCA(Z, 0.999)
+
+p90pct = min(eff90pct*min.pvalue, 1)
+p95pct = min(eff95pct*min.pvalue, 1)
+p99pct = min(eff99pct*min.pvalue, 1)
+p99.9pct = min(eff99.9pct*min.pvalue, 1)
+
+cbind(c(p90pct, p95pct,p99pct, p99.9pct), c(90,95,99,99.9))
+
+### Note that there is tremendous heterogeneity in the p-values.  Although they are all significant, it's not clear which is the best.
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: averaging/collapsing tests
+
+### let's first collapse the SNPs into a simple average or sum of the variants within the region
+
+C = apply(Z, 1, sum) ## This sums each row of Z
+hist(C)
+
+summary(lm(y~C))  ## This gives us the association between the averaged/summed SNP value and the outcome y
+
+### Now let's take the top principal component
+
+pca = prcomp(Z)       ### find eigen decomposition
+pc1 = Z%*%pca$rot[,1] ### computes the top principal component
+
+summary(lm(y~pc1)) ## Gives us the association
+```
 
 
 
