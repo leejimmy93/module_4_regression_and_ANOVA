@@ -586,9 +586,9 @@ pairs(pca$eigenvect[,1:4], col=tab$pop, labels=lbls)
 snpset <- snpgdsLDpruning(genofile, ld.threshold=0.2)
 
 snpset.id <- unlist(snpset)
+length(snpset.id)
 
 ## Now perform a PCA with the subset of SNPs
-
 pca2 <- snpgdsPCA(genofile, snp.id=snpset.id)
 
 tab2 <- data.frame(sample.id = pca2$sample.id,
@@ -615,6 +615,482 @@ temp=t(as.matrix(tab2[myorder,]))
 barplot(temp, col=c("blue","green"),xlab="Individual ", ylab="Ancestry", border=NA,axisnames=FALSE,main="Ancestry of MXL",ylim=c(0,1))
 legend("bottomright", c("European","Native American"), lwd=4, col=c("blue","green"), bg="white",cex=0.85)
 ```
+
+# session 6 
+```{r}
+#### BELOW IS THE PLINK COMMANDS USED CREATE A PLINK Genotype file in TPED format TO BE CONVERTED BY THE R PROGRAM GenABEL; R COMMANDS TO CONVERT THE 
+# GenABEL FORMATTED GENOTYPE FILE AND CREATE A GENETIC RELAITONSHIP MATRIX.  ##
+
+##  It is computationally intensive to create the PLINK TPED and GenABEL FILES, so the final GenABEL files have been provided for you.  You can start  this demo using the commands in the middle of the document where the GenABEL files are read into the R session for the linear mixed  model association analysis with GenABEL.  $$
+
+#### FIRST USE PLINK TO   OBTAIN A TPED FILE for the Transferrin data that can be used with the GenABEL package in R  ###
+
+#./plink  --bfile Transferrin  --maf 0.05 --geno 0.01 --hwe 0.001   --recode --transpose  --out Transposed_Transferrin  --noweb
+
+
+### R commands ###
+
+setwd("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/") 
+
+## Install the package GenABEL if it is not already installed on your computer
+
+# install.packages("GenABEL")
+
+# Load the GenABEL library to your R session  #
+library(GenABEL)
+
+# Convert 
+#convert.snp.tped(tped="Transposed_Transferrin.tped",tfam="Transposed_Transferrin.tfam", out="GenAbel_Transferrin.raw",strand="+")
+
+## Obtain some basic Info on transferrin phenotype  
+
+#mydata<-read.table(file="Tr.pheno", header=FALSE)
+#names(mydata)=c("FID","IID","Transferrin")
+#id=mydata$IID
+#Transferrin=mydata$Transferrin
+
+
+#mydata<-read.table(file="Ht.pheno", header=FALSE)
+#names(mydata)=c("FID","IID","Height")
+#id=mydata$IID
+#Height=mydata$Height
+
+
+#FAM<-read.table(file="Transposed_Transferrin.tfam",sep=" ", header=FALSE,na="NA")
+#names(FAM)=c("FID","IID","PID1","PID2","SEX","Dummy")
+#sex=FAM$SEX-1
+
+
+#### Create a table with just individual ID, Sex, and the two phenotypes ###
+
+#mydata2=data.frame(id,sex,Transferrin,Height)
+
+### Save this file that can be read in ###
+#write.table(mydata2,"Transferrin_Height.dat",row.names=FALSE,col.names=TRUE,quote=FALSE)
+
+
+#Transferrin.GR<- load.gwaa.data(phe="Transferrin_Height.dat",gen="GenAbel_Transferrin.raw")
+
+### Save this file so that it can be read in at a time with having to recreate the object
+#save(Transferrin.GR,file="Transferrin_GRAMMAR.Rdata")
+
+### Create The Genetic Relationship Matix (GRM):  This is very computationally intensive!  Will take serveral hours on a laptop!  #####
+
+#Transferrin.gkin <- ibs(Transferrin.GR[, autosomal(Transferrin.GR)], weight="freq")
+
+### Save the GRM so that it does not have to be created again for future analyses ###
+
+#save(Transferring.gkin,file="GRM_Transferrin_GRAMMAR.Rdata")
+
+
+########################################################################################################
+#### START HERE TO READ IN THE GenAbel formatted files and perform the GWAS with linear mixed models ###
+########################################################################################################
+
+
+## Set your working directory to where the files are located
+
+setwd("/Users/tathornt/Documents/SISG_2016_Analysis")
+
+
+# Install the package GenABEL if it is not already installed on your computer $
+
+install.packages("GenABEL")   
+
+# Load the GenABEL library to your R session  #
+
+library(GenABEL)
+
+load("Transferrin_GRAMMAR.Rdata")
+load("GRM_Transferrin_GRAMMAR.Rdata")
+
+
+descriptives.trait(Transferrin.GR)
+descriptives.marker(Transferrin.GR)
+
+#### Get the variance components of the traits for the Linear Mixed Model Analysis  #####
+
+
+h2a <- polygenic(Transferrin,Transferrin.GR,kin=Transferrin.gkin)
+h2b <- polygenic(Height,Transferrin.GR,kin=Transferrin.gkin)
+?polygenic
+
+### heritability estimate for transferrin ###
+h2a$esth2
+
+#> h2a$esth2
+#[1] 0.4959505
+
+
+### heritability estimate for height###
+h2b$esth2
+
+#> h2b$esth2 # 77% variation can be explained genetic data 
+#[1] 0.7681223
+
+
+### Now perform the LMM Association analysis ###
+grGamma.Transferrin<- grammar(h2a,data=Transferrin.GR,method="gamma")
+grGamma.Height<- grammar(h2b,data=Transferrin.GR,method="gamma")
+
+?grammar
+
+### Now use the output and the GWASTools package to obtain plots  ### 
+library(GWASTools)
+
+
+### Create a dataframe with  association results for Transferrin ###
+
+myrow=row.names(grGamma.Transferrin)
+
+mydata=grGamma.Transferrin[,c(1,2,6,7,8,9,10)]
+
+mydata2=data.frame(myrow,mydata)
+
+mydata2=mydata2[,c(2,1,3,4,5,6,7,8)]
+names(mydata2)=c("CHR","SNP", "BP", "N", "BETA", "SE","chi2.1df","P1df")
+
+TOP <- mydata2[order(mydata2$P1df),] 
+head(TOP,10)
+
+manhattanPlot(p=mydata2$P1df,chromosome=mydata2$CHR, ylim=c(0,40), main="LMM Association Results for Transferrin")
+
+qqPlot(pval=mydata2$P1df)
+
+##### Similar, obtain plots for height ###
+
+myrowH=row.names(grGamma.Height)
+
+mydataH=grGamma.Height[,c(1,2,6,7,8,9,10)]
+
+mydata2H=data.frame(myrowH,mydataH)
+
+mydata2H=mydata2H[,c(2,1,3,4,5,6,7,8)]
+names(mydata2H)=c("CHR","SNP", "BP", "N", "BETA", "SE","chi2.1df","P1df")
+
+TOPH <- mydata2H[order(mydata2H$P1df),] 
+head(TOPH,10)
+
+manhattanPlot(p=mydata2H$P1df,chromosome=mydata2H$CHR, main="Association Results for Height")
+
+qqPlot(pval=mydata2H$P1df)
+
+
+#### Compare the qqplot for height from the mixed model to the plot from the linear regression analysis with PLINK  ####
+
+### WHAT IS THE PROBLEM?  ## Can Use SNPrelate to estimate relatedness.
+
+##  Create a GDS file for R from the PLINK files
+
+library(gdsfmt)
+library(SNPRelate)
+
+bedfile<-"/Users/tathornt/Documents/SISG_2016_Analysis/Transferrin.bed" 
+famfile<-"/Users/tathornt/Documents/SISG_2016_Analysis/Transferrin.fam" 
+bimfile<-"/Users/tathornt/Documents/SISG_2016_Analysis/Transferrin.bim" 
+
+snpgdsBED2GDS(bedfile, famfile, bimfile, "Transferringeno.gds")
+
+genofile <- snpgdsOpen("Transferringeno.gds")
+head(genofile)
+head(read.gdsn(index.gdsn(genofile, "sample.id")))
+head(read.gdsn(index.gdsn(genofile, "snp.id")))
+
+
+ibd <- snpgdsIBDMoM(genofile, maf=0.05, missing.rate=0.05, num.thread=2)
+ibd.coeff <- snpgdsIBDSelection(ibd)
+head(ibd.coeff)
+
+png("Transferrin_Relatedness.png")
+plot(ibd.coeff$k0,ibd.coeff$kinship, xlim=c(0,1), ylim=c(0,.55),
+    xlab="Probability of IBD=1", ylab="Kinship Coefficient", main="Transferrin Kinship")
+dev.off()
+```
+
+# session 7 
+```{r}
+##################################################################################################################
+##################################################################################################################
+## PLINK script: recoding the data (for extraction later) and do GxE with dichotomous Exposure variable
+
+# plink --bfile Transferrin --chr 3 --from-kb 134840 --to-kb 135052 --recodeA --out  TFsnps
+
+### Analysis using ALL SNPs, --covar is the other variance that you want to test 
+# interaction for 
+
+# plink --bfile Transferrin --gxe --covar covD.dat --pheno Tr.pheno --out fullGxEanalysis
+
+### Analysis using Only SNPs in TF gene, restricted to a particular region 
+
+# plink --bfile Transferrin --chr 3 --from-kb 134840 --to-kb 135052 --gxe --covar covD.dat --pheno Tr.pheno --out TFGxEanalysisD
+
+### Try to run interaction analysis with quantitative Exposure, continuous, this doesn't work for continuous ... so this fails, and we will try to do this in R 
+
+# plink --bfile Transferrin --chr 3 --from-kb 134840 --to-kb 135052 --gxe --covar covC.dat --pheno Tr.pheno --out TFGxEanalysisC 
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts : Reading data into R and getting rid of missing phenotypes
+setwd("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/plink-1.07-mac-intel/")
+
+snps = read.table("TFsnps.raw", header = T) 
+phenotypes = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Data_Files/Tr.pheno", header = F)
+envC = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex7/covC.dat", header = F)
+
+missing.phenotypes = which(is.na(phenotypes[,3])) # clean up missingness
+Z = as.matrix(snps[-missing.phenotypes,7:30])
+y = as.vector(phenotypes[-missing.phenotypes,3])
+E = as.vector(envC[-missing.phenotypes,3])
+
+sum(is.na(Z)) ## this gives us the number of SNPs that are missing
+
+w.missing = which(apply(is.na(Z),1,sum) > 0) ## This figures out which subjects have ANY missing values
+
+Z = Z[-w.missing,]  ## now we get rid of the subjects with any missing SNPs
+y = y[-w.missing]   ## BE CAREFUL: because we are over-writing the variable, don't run this line more than once by accident.
+E = E[-w.missing]
+
+sum(is.na(Z))
+sum(is.na(y)) ## Now we see that there is no missingness in either the Z or the y.
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts : Marginal Association Test for GxE 
+
+pvs = rep(NA, ncol(Z))
+
+for (j in 1:ncol(Z)){
+    mod = lm(y~Z[,j]*E)
+    pvs[j] = summary(mod)$coef[4,4] ### Need to make sure plucking off the correct value
+}
+
+pvs
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts : 2-df test
+
+pvs.2df = rep(NA, ncol(Z))
+
+for (j in 1:ncol(Z)) {
+    mod0 = lm(y~E)
+    mod1 = lm(y~Z[,j]*E)
+    pvs.2df[j] = anova(mod1,mod0)$P[2]
+}
+pvs.2df # looks like you have smaller P-value, but this is main+interaction effect, so you don't know whether there is really interaction 
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts : Simulate outcome
+
+set.seed(150)
+n = length(y)
+y.new = 5*(E^2) + rnorm(n, 0, 1)
+
+
+pvs = rep(NA, ncol(Z))
+
+for (j in 1:ncol(Z)){
+    mod = lm(y.new~Z[,j]*E)
+    pvs[j] = summary(mod)$coef[4,4] ### Need to make sure plucking off the correct value
+}
+
+pvs
+
+##################################################################################################################
+##################################################################################################################
+## PLINK script: testing for gene-gene interactions
+
+### Analysis using ALL SNPs
+
+# plink --bfile Transferrin --epistasis --pheno Tr_dich.pheno --out fullGxGanalysis
+
+
+### Analysis using Only SNPs in TF gene, epistatic interaction between pairwise SNPs
+
+# plink --bfile Transferrin --epistasis --chr 3 --from-kb 134840 --to-kb 135052 --pheno Tr_dich.pheno --out TFGxGanalysis
+
+
+### Case Only analysis, assumption of indepdence of SNPs, no LD between SNPs, so specify the distance between SNPs, e.g. 1kb 
+
+# plink --bfile Transferrin --fast-epistasis --case-only --chr 3 --from-kb 134840 --to-kb 135052 --pheno Tr_dich.pheno --out TFGxG_CO_analysis 
+
+# plink --bfile Transferrin --fast-epistasis --case-only --gap 1  --chr 3 --from-kb 134840 --to-kb 135052 --pheno Tr_dich.pheno --out TFGxG_CO_analysis 
+```
+
+# session 8 
+```{r}
+##################################################################################################################
+##################################################################################################################
+### R Scripts: let's read Gene1 into R and look at the MAFs.
+
+Z = as.matrix(read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Gene1.txt", header = F))
+
+maf = apply(Z,2,mean)/2 ## calculate the mean of each column and divide by 2 to get the maf
+
+maf = colMeans(Z)/2
+
+hist(maf) ## plot histogram
+hist(maf[which(maf<0.05)])  ## Zoomed histogram (focus on really small values)
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: test for association between each variant in Gene1 and Trait1
+
+y.c = scan("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Trait1.txt") ## read in the values for trait 1
+
+pvs = rep(NA, ncol(Z))
+for (j in seq(ncol(Z))) {
+  pvs[j] = summary(lm(y.c~Z[,j]))$coef[2,4]  ## test for association between y.c and each SNP
+}
+p.adjust(pvs, "bonf")  ## adjust p-values for multiple testing
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: test for association between the variants in Gene1 and Trait1.
+
+rvs = which(maf<0.03)  ## Set the threshold to be 0.03
+
+### CAST: Binary collapsing
+
+C = as.numeric(apply(Z[,rvs],1,sum)>0)  ## figures out if each person has any rare variants,
+                                        ## i.e. the sum of their variants in additive mode would be greater than 0.
+summary(lm(y.c~C))
+
+
+### MZ Test
+
+C = apply(Z[,rvs],1,sum)  ## number of rare variants each person haz
+summary(lm(y.c~C))
+
+
+### Weighted Count
+
+weights = 1/sqrt(maf[rvs])
+C = Z[,rvs]%*%weights ## Weighted sum
+summary(lm(y.c~C))
+
+weights = 1/maf[rvs] ## alternative weights
+C = Z[,rvs]%*%weights
+summary(lm(y.c~C))
+
+weights = (1/maf[rvs])^2 ## alternative weights
+C = Z[,rvs]%*%weights
+summary(lm(y.c~C))
+
+weights = (1/maf[rvs])^(1/3) ## alternative weights
+C = Z[,rvs]%*%weights
+summary(lm(y.c~C))
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: test for association between the variants in Gene2 and Trait2.
+
+Z = as.matrix(read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Gene2.txt", header = F))
+maf = apply(Z,2,mean)/2 ## calculate the mean of each column and divide by 2 to get the maf
+y.c = scan("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Trait2.txt") ## read in the values for trait 1
+
+
+rvs = which(maf<0.03)  ## Set the threshold to be 0.03
+
+
+### CAST: Binary collapsing
+
+C = as.numeric(apply(Z[,rvs],1,sum)>0)  ## figures out if each person has any rare variants,
+                                        ## i.e. the sum of their variants in additive mode would be greater than 0.
+summary(lm(y.c~C))
+
+
+### MZ Test
+
+C = apply(Z[,rvs],1,sum)  ## number of rare variants each person haz
+summary(lm(y.c~C))
+
+
+### Weighted Count
+
+weights = 1/sqrt(maf[rvs])
+C = Z[,rvs]%*%weights ## Weighted sum
+summary(lm(y.c~C))
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: test for association between the variants in Gene3 and Trait3.
+
+Z = as.matrix(read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Gene3.txt", header = F))
+maf = apply(Z,2,mean)/2 ## calculate the mean of each column and divide by 2 to get the maf
+y.c = scan("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Trait3.txt") ## read in the values for trait 1
+
+
+### CAST: Binary collapsing
+
+rvs = which(maf<0.05)  ## Set the threshold to be 0.05
+C = as.numeric(apply(Z[,rvs],1,sum)>0)
+summary(lm(y.c~C))
+
+
+rvs = which(maf<0.03)  ## Set the threshold to be 0.03
+C = as.numeric(apply(Z[,rvs],1,sum)>0)
+summary(lm(y.c~C))
+
+
+rvs = which(maf<0.01)  ## Set the threshold to be 0.01
+C = as.numeric(apply(Z[,rvs],1,sum)>0)
+summary(lm(y.c~C))
+
+
+rvs = which(maf<0.005)  ## Set the threshold to be 0.005
+C = as.numeric(apply(Z[,rvs],1,sum)>0)
+summary(lm(y.c~C))
+
+
+### MZ Test
+
+rvs = which(maf<0.05)  ## Set the threshold to be 0.05
+C = apply(Z[,rvs],1,sum)
+summary(lm(y.c~C))
+
+rvs = which(maf<0.03)  ## Set the threshold to be 0.03
+C = apply(Z[,rvs],1,sum)
+summary(lm(y.c~C))
+
+rvs = which(maf<0.01)  ## Set the threshold to be 0.01
+C = apply(Z[,rvs],1,sum)
+summary(lm(y.c~C))
+
+rvs = which(maf<0.005)  ## Set the threshold to be 0.005
+C = apply(Z[,rvs],1,sum)
+summary(lm(y.c~C))
+
+
+### Weighted Count
+
+rvs = which(maf<0.05)  ## Set the threshold to be 0.05
+weights = 1/maf[rvs]
+C = Z[,rvs]%*%weights ## Weighted sum
+summary(lm(y.c~C))
+
+weights = 1/maf ## DO NOT RESTRICT ANALYSIS TO RARE VARIANTS
+C = Z%*%weights
+summary(lm(y.c~C))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
