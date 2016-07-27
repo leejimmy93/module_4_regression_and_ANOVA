@@ -1086,6 +1086,269 @@ summary(lm(y.c~C))
 # choosing particular weights, threshold can change your results. 
 ```
 
+# session 9 
+```{r}
+##################################################################################################################
+### R Scripts: let's read Gene2 into R and analyze it
+# install.packages("SKAT")
+library(SKAT)
+
+Z = as.matrix(read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Gene2.txt", header = F))
+
+maf = apply(Z,2,mean)/2 ## calculate the mean of each column and divide by 2 to get the maf
+y.c = scan("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex8/Trait2.txt") ## read in the values for trait 1
+
+rvs = which(maf<0.03)  ## Set the threshold to be 0.03, set these weight equal to 1 and the rest equal to 0 
+
+obj<-SKAT_Null_Model(y.c ~ 1, out_type="C") ## calculates the NULL model, i.e. there are no variants, regression on just intercept 
+# you have to get the Null model firstly... because you only want to get Null model 
+# once, this saves computational power 
+
+SKAT(Z, obj)$p.value ## test for trait 2 with gene 2.  Note that we are using the default settings and testing all variants.
+
+SKAT(Z[,rvs], obj)$p.value ## restrict attention to rare variants.  The null model has not changed.
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: let's dichtomize trait 2
+
+q1 = quantile(y.c,0.25)
+?quantile
+q3 = quantile(y.c,0.75)
+
+y.b = rep(NA, length(y.c))
+
+y.b[which(y.c <= q1)] = 0
+y.b[which(y.c >= q3)] = 1
+
+omits = which(is.na(y.b))
+y.b = y.b[-omits]
+Z.b = Z[-omits,]
+
+
+obj<-SKAT_Null_Model(y.b ~ 1, out_type="D") ## calculates the NULL model, i.e. there are no variants
+
+SKAT(Z.b, obj)$p.value ## test for trait 2 with gene 2.  Note that we are using the default settings and testing all variants.
+
+SKAT(Z.b[,rvs], obj)$p.value ## restrict attention to rare variants.  The null model has not changed.
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: let's try running the C-alpha; recall that this can be done by setting the weights to be 1!
+
+obj<-SKAT_Null_Model(y.c ~ 1, out_type="C") ## calculates the NULL model, i.e. there are no variants -- need to rerun because outcome changed
+
+SKAT(Z[,rvs], obj, weights.beta = c(1,1))$p.value ## restrict attention to rare variants.  The null model has not changed.
+
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: omnibus version of SKAT with several different rho values, rho is the weight you give to SKAT and burden test 
+
+SKAT(Z[,rvs], obj, r.corr=0)$p.value  ## same as running SKAT
+
+SKAT(Z[,rvs], obj, r.corr=1)$p.value ## same as weighted count collapsing
+
+SKAT(Z[,rvs], obj, r.corr=.5)$p.value ## something in between
+
+weights = dbeta(maf[rvs], 1,25)
+C = Z[,rvs]%*%weights ## calculate the collapsed variable
+summary(lm(y.c~C))
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: omnibus version of SKAT with "optimal" rho value
+
+SKAT(Z[,rvs], obj, method="optimal")$p.value
+
+SKAT(Z[,rvs], obj, method="optimal.adj")$p.value ## slightly better type I error control in the tails. 
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: read in PLINK example data and analyze the 10 genes there.
+
+## define the file names and paths, note that the SSD and SSD.info don't exist yet
+
+File.Bed<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex9/PlinkExample/Example1.bed"
+File.Bim<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex9/PlinkExample/Example1.bim"
+File.Fam<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex9/PlinkExample/Example1.fam"
+File.SetID<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex9/PlinkExample/Example1.SetID"
+File.SSD<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex9/PlinkExample/Example1.SSD"
+File.Info<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex9/PlinkExample/Example1.SSD.info"
+
+
+## To use binary ped files, you have to generate SSD file first.
+## If you already have a SSD file, you do not need to call this
+Generate_SSD_SetID(File.Bed, File.Bim, File.Fam, File.SetID, File.SSD, File.Info)
+
+## Now we can open the SSD files and also run SKAT
+FAM<-Read_Plink_FAM(File.Fam, Is.binary=FALSE)
+y<-FAM$Phenotype
+
+## To use a SSD file, please open it first.
+## After finishing using it, you must close it.
+SSD.INFO<-Open_SSD(File.SSD, File.Info)
+
+## Number of samples
+SSD.INFO$nSample
+
+## Number of Sets
+SSD.INFO$nSets
+obj<-SKAT_Null_Model(y ~ 1, out_type="C") # get the null model 
+out<-SKAT.SSD.All(SSD.INFO, obj) 
+out
+```
+
+# session 10 
+```{r}
+setwd("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/")
+
+##################################################################################################################
+##################################################################################################################
+### R Scripts: let's analyze chr22 for association with Y1 using both SKAT and also count based collapsing
+
+library(SKAT) 
+
+# Create the MW File
+File.Bed<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/ExomeChr22.bed"
+File.Bim<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/ExomeChr22.bim"
+File.Fam<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/ExomeChr22.fam"
+File.Cov<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/Input Files and Code/ExomeChr22.Cov"
+File.SetID<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/ExomeChr22.SetID"
+File.SSD<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/ExomeChr22.SSD"
+File.Info<-"/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex10/ExomeChr22.SSD.info"
+
+# To use binary ped files, you have to generate SSD file first.
+# If you already have a SSD file, you do not need to call this function.
+Generate_SSD_SetID(File.Bed, File.Bim, File.Fam, File.SetID, File.SSD, File.Info)
+
+##############################################
+# 	Open SSD, and Run SKAT
+#
+
+FAM<-Read_Plink_FAM_Cov(File.Fam, File.Cov)
+obj<-SKAT_Null_Model(Y1~X1+X2, out_type="C", data=FAM)
+
+#
+# To use a SSD file, please open it first.
+#
+SSD.INFO<-Open_SSD(File.SSD, File.Info)
+
+# Number of samples
+SSD.INFO$nSample
+
+# Number of Sets
+SSD.INFO$nSets 
+
+re.SKAT<-SKAT.SSD.All(SSD.INFO, obj) ## original SKAT
+
+re.Burden<-SKAT.SSD.All(SSD.INFO, obj,r.corr=1) ## weighted count based collapsing
+
+re.SKATO<-SKAT.SSD.All(SSD.INFO, obj, method="optimal.adj")  ## optimal omnibus test
+
+
+##################################################################################################################
+##################################################################################################################
+### Re-analyzing the transferrin data set: THIS WILL USE BOTH PLINK AND R SCRIPTS
+
+### Make sure that you are in the correct directory (where the transferrin data set is)
+### we will need to create the setID file: this is often the most irritating part
+### We begin by downloading the refseq transcripts (this is in the refGene.txt file).  Then the following code will
+### generate the setIDs.
+
+##################################################################################################################
+### R script for generating gene list
+
+# where is this refgene.txt file? 
+refgenes = read.table("/Users/ruijuanli/Desktop/2016_summer/summer_institute/module10_GWAS/data/SISG_Files/Ex4/refGene.txt", sep = "\t", as.is = T, quote = "", header = F)
+dim(refgenes)
+
+chrs = refgenes[,3]  # chromosomes, but there is a lot of junk in the chromsome names here that needs to be filtered.
+
+chrs = sapply(strsplit(chrs,"[r_]"),"[", 2)
+omits = c(which(chrs == "Y"), which(chrs=="X")) ## drop sex chromosomes
+
+out = cbind(chrs[-omits], refgenes[-omits, 5], refgenes[-omits, 6], refgenes[-omits, 13], refgenes[-omits, 13])
+
+write.table(out, file = "gene.list", sep = "\t", quote =F, row.name = F, col.name = F)
+
+
+### Note that there are multiple transcripts per gene, so we will condense these.
+### In reality, we could also do a transcript level analysis.
+
+
+##################################################################################################################
+### plink script for generating set ids (not quite ready for skat format yet)
+
+# plink --bfile transferrin --make-set gene.list --make-set-collapse-group --write-set
+
+##################################################################################################################
+### R script for generating setIDs which can be fed to SKAT
+
+sets = scan("plink.set", what = "char")
+
+setname = sets[1]
+i = 2
+
+sink("transferrin.SetID")
+
+while (1) {
+  while (sets[i] != "END") {
+      cat(setname,"\t",sets[i],"\n", sep = "")
+      i = i+1
+  }
+  if (i == length(sets))
+      break;
+  i = i+1
+  setname = sets[i]
+  i = i+1
+}
+sink()
+
+### NOTE: I  HAVE NOT BEEN CAREFUL ABOUT MATCHING REFSEQ GENE DEFINITIONS TO THE VERSION OF THE
+### GENOME USED IN THE TRANSFERRIN DATA!!! YOU WILL NEED TO DO THIS IF YOU HAVE YOUR OWN DATA.
+
+##################################################################################################################
+### R script for doing the analysis with SKAT
+
+# Create the MW File
+File.Bed<-"./Transferrin.bed"
+File.Bim<-"./Transferrin.bim"
+#File.Fam<-"./Transferrin.fam"
+File.Cov<-"./Tr.pheno"
+File.SetID<-"./Transferrin.SetID"
+File.SSD<-"./Transferrin.SSD"
+File.Info<-"./Transferrin.SSD.info"
+
+# To use binary ped files, you have to generate SSD file first.
+# If you already have a SSD file, you do not need to call this function.
+Generate_SSD_SetID(File.Bed, File.Bim, File.Fam, File.SetID, File.SSD, File.Info)
+
+##############################################
+# 	Open SSD, and Run SKAT
+#
+
+phenotypes = read.table(File.Cov, header = F)
+y = phenotypes[,3]
+obj<-SKAT_Null_Model(y~1, out_type="C")
+
+
+#
+# To use a SSD file, please open it first.
+#
+SSD.INFO<-Open_SSD(File.SSD, File.Info)
+
+# Number of samples
+SSD.INFO$nSample
+
+# Number of Sets
+SSD.INFO$nSets
+
+
+re.SKAT<-SKAT.SSD.All(SSD.INFO, obj, kernel = "linear") ## note the use of the linear kernel 
+```
 
 
 
